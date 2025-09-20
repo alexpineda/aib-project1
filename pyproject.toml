@@ -10,5 +10,6 @@ dependencies = [
     "openai>=1.108.1",
     "pandas>=2.3.2",
     "pydantic>=2.11.9",
+    "seaborn>=0.13.2",
     "transformers>=4.56.2",
 ]
