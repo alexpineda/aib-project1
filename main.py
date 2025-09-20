@@ -5,6 +5,7 @@ from typing import List
 import random
 import json
 from datetime import datetime
+import pandas as pd
 
 pairs_to_generate = 20
 
@@ -102,7 +103,7 @@ filename = f"qa_pairs_{timestamp}.json"
 
 # Convert Pydantic models to dictionaries for JSON serialization
 qa_data = []
-for i, qa_item in enumerate(generated_pairs):
+for i, qa_item in generated_pairs:
     qa_dict = {
         "question": qa_item.question,
         "answer": qa_item.answer,
@@ -119,4 +120,48 @@ with open(filename, 'w', encoding='utf-8') as f:
     json.dump(qa_data, f, indent=2, ensure_ascii=False)
 
 print(f"\nSaved {len(generated_pairs)} QA pairs to {filename}")
+
+# Create pandas DataFrame for failure analysis
+print("\n=== CREATING FAILURE ANALYSIS DATAFRAME ===")
+
+# Prepare data for DataFrame
+df_data = []
+for i, qa_item in enumerate(generated_pairs):
+    row = {
+        'trace_id': i + 1,
+        'question': qa_item.question,
+        'answer': qa_item.answer,
+        'equipment_problem': qa_item.equipment_problem,
+        'tools_required': qa_item.tools_required,
+        'steps': qa_item.steps,
+        'safety_info': qa_item.safety_info,
+        'tips': qa_item.tips,
+        # Binary failure mode columns (0 = success, 1 = failure)
+        'incomplete_answer': 0,
+        'safety_violations': 0,
+        'unrealistic_tools': 0,
+        'overcomplicated_solution': 0,
+        'missing_context': 0,
+        'poor_quality_tips': 0
+    }
+    df_data.append(row)
+
+# Create DataFrame
+df = pd.DataFrame(df_data)
+
+print(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns")
+print(f"Columns: {list(df.columns)}")
+
+# Display basic info about the DataFrame
+print(f"\nDataFrame shape: {df.shape}")
+print(f"Failure mode columns initialized to 0 (success)")
+
+# Save DataFrame to CSV for manual labeling
+df_filename = f"qa_failure_analysis_{timestamp}.csv"
+df.to_csv(df_filename, index=False)
+print(f"DataFrame saved to {df_filename} for manual failure labeling")
+
+# Display first few rows
+print(f"\nFirst 3 rows of DataFrame:")
+print(df.head(3).to_string())
 
