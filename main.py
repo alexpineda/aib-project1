@@ -1,8 +1,10 @@
 from pydantic import BaseModel
-from instructor import from_hf
-from transformers import pipeline
+from instructor import from_openai
+from openai import OpenAI
 from typing import List
 import random
+import json
+from datetime import datetime
 
 pairs_to_generate = 20
 
@@ -18,8 +20,8 @@ class QAItem(BaseModel):
 
 # Define schema for single QA item only
 
-# Load HF model
-pipe = pipeline("text-generation", model="meta-llama/Meta-Llama-3-8B")
+# Load OpenAI client
+openai_client = OpenAI()
 
 experts = [
     {
@@ -45,14 +47,16 @@ experts = [
 ]
 
 # Wrap with Instructor
-client = from_hf(pipe)
+client = from_openai(openai_client)
 
 # Generate 20 QA pairs with random expert selection
 generated_pairs = []
+used_experts = []
 
 for i in range(pairs_to_generate):
     # Randomly select an expert
     selected_expert = random.choice(experts)
+    used_experts.append(selected_expert['id'])
     
     # Create prompt for this specific expert
     prompt = f"""
@@ -71,8 +75,9 @@ Focus on the expertise area: {selected_expert['id'].replace('_', ' ').title()}
 """
     
     # Generate single QA pair
-    qa_item = client(
-        prompt,
+    qa_item = client.create(
+        messages=[{"role": "user", "content": prompt}],
+        model="gpt-4o-mini", # gpt-5-mini is overly verbose
         response_model=QAItem,
     )
     
@@ -90,4 +95,28 @@ Focus on the expertise area: {selected_expert['id'].replace('_', ' ').title()}
     print("-" * 50)
 
 print(f"\nGenerated {len(generated_pairs)} QA pairs with random expert selection")
+
+# Save generated pairs to JSON file
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+filename = f"qa_pairs_{timestamp}.json"
+
+# Convert Pydantic models to dictionaries for JSON serialization
+qa_data = []
+for i, qa_item in enumerate(generated_pairs):
+    qa_dict = {
+        "question": qa_item.question,
+        "answer": qa_item.answer,
+        "equipment_problem": qa_item.equipment_problem,
+        "tools_required": qa_item.tools_required,
+        "steps": qa_item.steps,
+        "safety_info": qa_item.safety_info,
+        "tips": qa_item.tips
+    }
+    qa_data.append(qa_dict)
+
+# Save to JSON file
+with open(filename, 'w', encoding='utf-8') as f:
+    json.dump(qa_data, f, indent=2, ensure_ascii=False)
+
+print(f"\nSaved {len(generated_pairs)} QA pairs to {filename}")
 
